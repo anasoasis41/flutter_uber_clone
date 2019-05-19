@@ -77,6 +77,7 @@ class _MapState extends State<Map> {
           mapType: MapType.normal,
           markers: _marker,
           onCameraMove: onCameraMove,
+          polylines: _polylines,
         ),
 
         Positioned(
@@ -130,6 +131,11 @@ class _MapState extends State<Map> {
             ),
             child: TextField(
               cursorColor: Colors.black,
+              controller: destinationController,
+              textInputAction: TextInputAction.go,
+              onSubmitted: (value){
+                sendRequest(value);
+              },
               decoration: InputDecoration(
                 icon: Container(margin: EdgeInsets.only(left: 20, top: 5), width: 10, height: 10, child: Icon(Icons.local_taxi, color: Colors.black,),),
                 hintText: "destination?",
@@ -163,15 +169,25 @@ class _MapState extends State<Map> {
     _lastPosition = position.target;
   }
 
-  void _onAddMarkerPressed() {
+  void _AddMarker(LatLng location, String address) {
     setState(() {
       _marker.add(Marker(markerId: MarkerId(_lastPosition.toString()),
-          position: _lastPosition,
+          position: location,
           infoWindow: InfoWindow(
-              title: "remember here",
-              snippet: "good place"
+              title: address,
+              snippet: "go here"
           ),
           icon: BitmapDescriptor.defaultMarker
+      ));
+    });
+  }
+
+  void createRoute(String encodedPoly) {
+    setState(() {
+      _polylines.add(Polyline(polylineId: PolylineId(_lastPosition.toString()),
+        width: 10,
+        points: convertToLatLng(decodePoly(encodedPoly)),
+        color: Colors.black
       ));
     });
   }
@@ -234,7 +250,17 @@ class _MapState extends State<Map> {
       _initialPosition = LatLng(position.latitude, position.longitude);
       locationController.text = placemark[0].name;
     });
+  }
 
+  void sendRequest(String intendedLocation)async {
+    List<Placemark> placemark = await Geolocator().placemarkFromAddress(
+        intendedLocation);
+    double latitude = placemark[0].position.latitude;
+    double longitude = placemark[0].position.longitude;
+    LatLng destination = LatLng(latitude, longitude);
+    _AddMarker(destination, intendedLocation);
+    String route = await googleMapsServices.getRouteCoordinates(_initialPosition, destination);
+    createRoute(route);
   }
 }
 
